@@ -1,0 +1,15 @@
+hazelcast:
+  jet:
+    enabled: True
+    resource-upload-enabled: True
+
+  map:
+    podcasts:
+      in-memory-format: OBJECT
+
+  vector-collection:
+    podcast-reviews:
+      indexes:
+        - name: semantic-search
+          dimension: 384
+          metric: COSINE

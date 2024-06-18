@@ -1,0 +1,40 @@
+services:
+
+  hz:
+    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    environment:
+      HZ_LICENSEKEY: ${HZ_LICENSEKEY}
+      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC -XX:ZCollectionInterval=1
+    volumes:
+      - ".:/project"
+    networks:
+      - hznet
+  mc:
+    image: hazelcast/management-center:5.5-SNAPSHOT
+    environment:
+      MC_DEFAULT_CLUSTER: dev
+      MC_DEFAULT_CLUSTER_MEMBERS: hz:5701
+    ports:
+      - "8080:8080"
+    networks:
+      - hznet
+
+  submit-podcast-loader:
+    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    volumes:
+      - ".:/project"
+    command: >
+      hz-cli submit 
+          -v 
+          -c=hazelcast.platform.labs.podcast.reviews.PodcastIngestPipeline  
+          -t=dev@hz   
+          /project/podcast-data-ingest/target/podcast-data-ingest-1.0-SNAPSHOT.jar 
+          /project/data/archive/podcasts.json
+    networks:
+    - hznet
+    profiles:
+      - disabled
+
+networks:
+  hznet: 
+  
