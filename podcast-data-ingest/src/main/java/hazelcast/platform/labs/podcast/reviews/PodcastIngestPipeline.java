@@ -73,12 +73,13 @@ public class PodcastIngestPipeline {
 
         /*
          * We will use an ObjectMapper instance (from jackson-databind) to parse and manipulate
-         * the input using the generic Tree model, so that we do not need domain classes.  Perform
-         * a rebalance so that the parsing step will be distributed across all nodes.
+         * the input using the generic Tree model, so that we do not need domain classes.
+         *
+         * Perform a rebalance so that the parsing step will be distributed across all nodes.
          */
         ServiceFactory<?, ObjectMapper> objectMapperServiceFactory =
                 ServiceFactories.sharedService(ctx -> new ObjectMapper());
-        BatchStage<ObjectNode> jsonNode = lines.rebalance().mapUsingService(
+        BatchStage<ObjectNode> jsonNode = lines.mapUsingService(
                 objectMapperServiceFactory, (mapper, line) -> (ObjectNode) mapper.readTree(line));
 
         /*

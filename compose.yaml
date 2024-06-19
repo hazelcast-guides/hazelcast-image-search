@@ -35,6 +35,22 @@ services:
     profiles:
       - disabled
 
+  submit-review-loader:
+    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    volumes:
+      - ".:/project"
+    command: >
+      hz-cli submit 
+          -v 
+          -c=hazelcast.platform.labs.podcast.reviews.ReviewIngestPipeline  
+          -t=dev@hz   
+          /project/podcast-data-ingest/target/podcast-data-ingest-1.0-SNAPSHOT.jar 
+          /project/data/archive/reviews.json
+    networks:
+      - hznet
+    profiles:
+      - disabled
+
 networks:
   hznet: 
   

@@ -3,9 +3,9 @@ hazelcast:
     enabled: True
     resource-upload-enabled: True
 
-  map:
-    podcasts:
-      in-memory-format: OBJECT
+#  map:
+#    podcasts:
+#      in-memory-format: OBJECT
 
   vector-collection:
     podcast-reviews:
