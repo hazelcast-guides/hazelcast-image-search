@@ -75,8 +75,17 @@ public class ReviewIngestPipeline {
 
         BatchStage<Tuple2<String, float[]>> vectors = jsonNode.mapUsingService(embeddingService,
                 (model, node) -> {
-                    float[] embedding = model.embed(node.get("content").asText()).content().vector();
-                    return Tuple2.tuple2(node.toString(), embedding);
+                    String content = node.get("content").asText();
+                    if (content == null) {
+                        return null;
+                    } else {
+                        try {
+                            float[] embedding = model.embed(content).content().vector();
+                            return Tuple2.tuple2(node.toString(), embedding);
+                        } catch(Exception x){
+                            return null;
+                        }
+                    }
                 });
 
         vectors.writeTo(VectorSinks.vectorCollection(
