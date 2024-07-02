@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.hazelcast.solutions</groupId>
-    <artifactId>podcast-qa</artifactId>
+    <artifactId>hazelcast-image-search</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>podcast-qa</name>
+    <name>hazelcast-image-search</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -18,6 +18,7 @@
         <jackson.version>2.17.1</jackson.version>
         <langchain.version>0.31.0</langchain.version>
         <hazelcast.version>5.5.0-SNAPSHOT</hazelcast.version>
+        <log4j.version>2.23.1</log4j.version>
     </properties>
 
     <repositories>
@@ -86,6 +87,6 @@
     </build>
 
     <modules>
-        <module>podcast-data-ingest</module>
+        <module>image-encode-pipeline</module>
     </modules>
 </project>

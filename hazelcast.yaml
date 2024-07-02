@@ -1,14 +1,13 @@
 hazelcast:
+  properties:
+    hazelcast.logging.type: log4j2
+
   jet:
     enabled: True
     resource-upload-enabled: True
 
-#  map:
-#    podcasts:
-#      in-memory-format: OBJECT
-
   vector-collection:
-    podcast-reviews:
+    patents:
       indexes:
         - name: semantic-search
           dimension: 384
