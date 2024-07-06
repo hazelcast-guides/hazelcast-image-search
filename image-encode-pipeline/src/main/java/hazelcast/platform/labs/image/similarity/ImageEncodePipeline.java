@@ -2,19 +2,9 @@ package hazelcast.platform.labs.image.similarity;
 
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.jet.datamodel.Tuple3;
+import com.hazelcast.jet.config.JobConfig;
+import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.jet.pipeline.*;
-import com.hazelcast.jet.pipeline.file.FileFormat;
-import com.hazelcast.jet.pipeline.file.FileSourceBuilder;
-import com.hazelcast.jet.pipeline.file.FileSources;
-import com.hazelcast.vector.VectorDocument;
-import com.hazelcast.vector.VectorValues;
-import com.hazelcast.vector.jet.VectorSinks;
-import dev.langchain4j.model.embedding.AllMiniLmL6V2EmbeddingModel;
-import org.apache.logging.log4j.LogManager;
-
-import java.io.File;
-import java.util.List;
 
 /*
  *
@@ -24,66 +14,76 @@ public class ImageEncodePipeline {
 
     public static void main(String []args){
         if (args.length != 1){
-            System.err.println("Please download https://www.kaggle.com/datasets/dheerajmpai/us-patent-abstracts-vector-indexed and  supply the name of the csv formatted file on the command line.");
+            System.err.println("Please provide the path to a directory containing .jpg files to be ingested");
             System.exit(1);
         }
 
-        String patentFilename = args[0];
-        File patentFile = new File(patentFilename);
-        String dir = patentFile.getParent();
-        String glob = patentFile.getName();
+        String dir = args[0];
 
         HazelcastInstance hz = Hazelcast.bootstrappedInstance();
 
-        Pipeline pipeline = createPipeline(dir, glob);
+        Pipeline pipeline = createPipeline(dir, "*.jpg", 2,true, false);
         pipeline.setPreserveOrder(false);   // nothing in here requires order
+        JobConfig config = new JobConfig();
+        config.setName("Ingest: " + dir);
         hz.getJet().newJob(pipeline);
     }
 
-    private static Pipeline createPipeline(String dir, String glob){
+    /*
+     * Will encode jpg format image files stored in dir. The source could be run on any nodes
+     * so all nodes need to have access to "dir" whether through a copy or a shared file  system.
+     *
+     * Setting distributeReads to true will cause the source to assume it is running on a shared file system and
+     * will cause each node to read a different subset of the files in dir.  This will also implicitly cause
+     * the encoding task to be distributed as well.
+     *
+     * Setting distributeEncoding to true will insert a rebalance step into the pipeline between reading an
+     * input file and performing vector encoding.  This will cause the encoding task to be distributed, but it
+     * will require the raw image bytes to be moved across nodes.  If distributeReads is true then no
+     * additional rebalance step will be added regardless of this setting.
+     */
+    private static Pipeline createPipeline(
+            String dir,
+            String glob,
+            int fileSourceBatchSize,
+            boolean distributeReads,
+            boolean distributeEncoding){
         Pipeline pipeline = Pipeline.create();
 
         /*
          * Create a local file source pointing to the csv file containing patent abstracts.  The
          * source emits one event per line in the file.
          */
-        FileSourceBuilder<String> fileSourceBuilder = FileSources.files(dir);
-        BatchSource<String[]> patentFile = fileSourceBuilder.glob(glob).format(FileFormat.csv((List<String>) null)).build();
-        BatchStage<String[]> lines = pipeline.readFrom(patentFile);
+
+        BatchSource<Tuple2<String,byte[]>> directory;
+
+        if (distributeReads)
+            directory = NameAwareFileSourceBuilder.newDistributedFileSource(dir, glob, fileSourceBatchSize);
+        else
+            directory = NameAwareFileSourceBuilder.newFileSource(dir, glob, fileSourceBatchSize);
+
+        BatchStage<Tuple2<String, byte[]>> imageBytes = pipeline.readFrom(directory).setName("Read Files");
+
+        imageBytes.writeTo(Sinks.logger( t -> t.f0() + " (" + t.f1().length + " bytes)"));
+
+        /*
+         * distribute the stream to all nodes if indicated by the flags
+         */
+//        if ( !distributeReads && distributeEncoding)
+//            imageBytes = imageBytes.rebalance().setName("Distribute Images");
 
 
-        ServiceFactory<?, AllMiniLmL6V2EmbeddingModel> embeddingService =
-                ServiceFactories.nonSharedService(ctx -> new AllMiniLmL6V2EmbeddingModel());
+        /*
+         * encode the image as a vector using the CLIP model
+         */
+//        ServiceFactory<?, ImageEncoder> imageEncoderServiceFactory =
+//                ServiceFactories.nonSharedService(ctx -> ImageEncoder.newInstance());
+//        BatchStage<Tuple2<String, float[]>> imageVectors = imageBytes.mapUsingService(
+//                        imageEncoderServiceFactory,
+//                        (encoder, t) -> Tuple2.tuple2(t.f0(), encoder.encodeImage(t.f1()))
+//                )
+//                .setName("Encode Image");
 
-        BatchStage<Tuple3<String, String, float[]>> vectors = lines.mapUsingService(embeddingService,
-                (model, line) -> {
-                    if (line == null || line.length != 3) {
-                        LogManager.getLogger(ImageEncodePipeline.class).warn("Ignoring malformed line: " + line);
-                        return null;
-                    }
-                    String key = line[0];
-                    if (key == null || key.length()  == 0){
-                        LogManager.getLogger(ImageEncodePipeline.class).warn("Ignoring line without publication number: " + line);
-                        return null;
-                    }
-                    String patentAbstract = line[1];
-                    if (patentAbstract == null || patentAbstract.length() == 0){
-                        LogManager.getLogger(ImageEncodePipeline.class).warn("Ignoring line npo abstract: " + line);
-                        return null;
-                    }
-
-                    try {
-                        float[] embedding = model.embed(patentAbstract).content().vector();
-                        return Tuple3.tuple3(key, patentAbstract, embedding);
-                    } catch(Exception x){
-                        return null;
-                    }
-                });
-
-        vectors.writeTo(VectorSinks.vectorCollection(
-                "patents",
-                t3 -> t3.f0(),
-                t3 -> VectorDocument.of(t3.f1(), VectorValues.of(t3.f2()))));
 
         return pipeline;
     }

@@ -19,33 +19,34 @@ services:
     networks:
       - hznet
 
-  submit-podcast-loader:
+
+  submit-image-loader-airplanes:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     volumes:
       - ".:/project"
     command: >
       hz-cli submit 
           -v 
-          -c=hazelcast.platform.labs.podcast.reviews.PodcastIngestPipeline  
+          -c=hazelcast.platform.labs.image.similarity.ImageEncodePipeline 
           -t=dev@hz   
-          /project/podcast-data-ingest/target/podcast-data-ingest-1.0-SNAPSHOT.jar 
-          /project/data/archive/podcasts.json
+          /project/image-encode-pipeline/target/image-encode-pipeline-1.0-SNAPSHOT.jar 
+          /project/images/caltech-101/101_ObjectCategories/airplanes
     networks:
-    - hznet
+      - hznet
     profiles:
       - disabled
 
-  submit-image-loader:
+  submit-image-loader-butterfly:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     volumes:
       - ".:/project"
     command: >
       hz-cli submit 
           -v 
-          -c=hazelcast.platform.labs.podcast.reviews.PatentIngestPipeline  
+          -c=hazelcast.platform.labs.image.similarity.ImageEncodePipeline 
           -t=dev@hz   
-          /project/patent-data-ingest/target/patent-data-ingest-1.0-SNAPSHOT.jar 
-          /project/data/train_mini.csv
+          /project/image-encode-pipeline/target/image-encode-pipeline-1.0-SNAPSHOT.jar 
+          /project/images/caltech-101/101_ObjectCategories/butterfly
     networks:
       - hznet
     profiles:
