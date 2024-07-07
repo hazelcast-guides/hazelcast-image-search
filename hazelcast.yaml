@@ -7,8 +7,8 @@ hazelcast:
     resource-upload-enabled: True
 
   vector-collection:
-    patents:
+    images:
       indexes:
         - name: semantic-search
-          dimension: 384
+          dimension: 512
           metric: COSINE
