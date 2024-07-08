@@ -8,6 +8,7 @@ import com.hazelcast.jet.pipeline.*;
 import com.hazelcast.vector.VectorValues;
 import com.hazelcast.vector.jet.VectorSinks;
 
+import java.util.Base64;
 import java.util.UUID;
 
 /*
@@ -58,7 +59,6 @@ public class ImageEncodePipeline {
          * Create a local file source pointing to the csv file containing patent abstracts.  The
          * source emits one event per line in the file.
          */
-
         BatchSource<Tuple2<String,byte[]>> directory;
 
         if (distributeReads)
@@ -74,27 +74,21 @@ public class ImageEncodePipeline {
         if ( !distributeReads && distributeEncoding)
             imageBytes = imageBytes.rebalance().setName("Distribute Images");
 
+        BatchStage<Tuple2<String, String>> base64EncodedImages =
+                imageBytes.map(t -> Tuple2.tuple2(t.f0, Base64.getEncoder().encodeToString(t.f1())))
+                        .setName("Base 64 Encode");
 
-        /*
-         * encode the image as a vector using the CLIP model
-         */
-        ServiceFactory<?, ImageEncoder> imageEncoderServiceFactory =
-                ServiceFactories.nonSharedService(ctx -> ImageEncoder.newInstance(), ImageEncoder::close);
 
-        BatchStage<Tuple2<String, float[]>> imageVectors = imageBytes.mapUsingService(
-                        imageEncoderServiceFactory,
-                        (encoder, t) -> Tuple2.tuple2(t.f0(), encoder.encodeImage(t.f1()))
-                )
-                .setName("Encode Image");
 
-        Sink<Tuple2<String, float[]>> vectorCollection =
-                VectorSinks.vectorCollection(
-                        "images",
-                        t -> UUID.randomUUID().toString(),
-                        Tuple2::f0,
-                        t -> VectorValues.of(t.f1()));
 
-        imageVectors.writeTo(vectorCollection);
+//        Sink<Tuple2<String, float[]>> vectorCollection =
+//                VectorSinks.vectorCollection(
+//                        "images",
+//                        t -> UUID.randomUUID().toString(),
+//                        Tuple2::f0,
+//                        t -> VectorValues.of(t.f1()));
+//
+//        imageVectors.writeTo(vectorCollection);
 
         return pipeline;
     }
