@@ -6,7 +6,6 @@ from scipy.spatial.distance import cosine
 import sentence_transformers
 
 if __name__ == '__main__':
-    filenames = []
     t0 = time.time()
     test_images = ['/Users/rmay/Documents/projects/hazelcast-image-search/images/caltech-101/101_ObjectCategories/dragonfly/image_0003.jpg',
                    '/Users/rmay/Documents/projects/hazelcast-image-search/images/caltech-101/101_ObjectCategories/dragonfly/image_0002.jpg']
@@ -14,12 +13,15 @@ if __name__ == '__main__':
     test_image_bytes = []
     for fname in test_images:
         with open(fname,'rb') as f:
-            # TODO - should guard against a file being too large to read completely
-            test_image_bytes.append(base64.b64encode(f.read()))
+            test_image_bytes.append(base64.b64encode(f.read()).decode('ascii'))
 
-    embeddings = clip_image_encoder.transform_list(test_image_bytes)
+    inputs = [{'metadata': fn, 'content': b} for fn,b in zip(test_images, test_image_bytes)]
 
-    floatarrays = [json.loads(x) for x in embeddings]
+    embeddings = clip_image_encoder.transform_list([json.dumps(input) for input in inputs])
+
+    outputs = [json.loads(r) for r in embeddings]
+
+    floatarrays = [j['vector'] for j in outputs]
     v1 = floatarrays[0]
 
     text_encoder = sentence_transformers.SentenceTransformer('clip-ViT-B-32')

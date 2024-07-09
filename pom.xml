@@ -17,6 +17,8 @@
         <maven.compiler.target>17</maven.compiler.target>
         <jackson.version>2.17.1</jackson.version>
         <hazelcast.version>5.5.0-SNAPSHOT</hazelcast.version>
+        <!-- dropping back to 5.4 due to ${guava.version} problem with latest -->
+        <hazelcast.jet.python.version>5.4.0</hazelcast.jet.python.version>
         <log4j.version>2.23.1</log4j.version>
         <djl.version>0.28.0</djl.version>
         <jackson.version>2.15.1</jackson.version>
@@ -88,6 +90,6 @@
     </build>
 
     <modules>
-        <module>image-encode-pipeline</module>
+        <module>image-ingest-pipeline</module>
     </modules>
 </project>

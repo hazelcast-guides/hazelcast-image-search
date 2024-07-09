@@ -10,9 +10,9 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>image-encode-pipeline</artifactId>
+    <artifactId>image-ingest-pipeline</artifactId>
 
-    <name>image-encode-pipeline</name>
+    <name>image-ingest-pipeline</name>
 
 
     <dependencies>
@@ -23,31 +23,17 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.hazelcast.jet</groupId>
+            <artifactId>hazelcast-jet-python</artifactId>
+            <version>${hazelcast.jet.python.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
             <version>${log4j.version}</version>
             <scope>provided</scope>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>ai.djl</groupId>-->
-<!--            <artifactId>api</artifactId>-->
-<!--            <version>${djl.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>ai.djl</groupId>-->
-<!--            <artifactId>model-zoo</artifactId>-->
-<!--            <version>${djl.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>ai.djl.pytorch</groupId>-->
-<!--            <artifactId>pytorch-model-zoo</artifactId>-->
-<!--            <version>${djl.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>ai.djl.huggingface</groupId>-->
-<!--            <artifactId>tokenizers</artifactId>-->
-<!--            <version>${djl.version}</version>-->
-<!--        </dependency>-->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>

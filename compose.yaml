@@ -27,26 +27,15 @@ services:
     command: >
       hz-cli submit 
           -v 
-          -c=hazelcast.platform.labs.image.similarity.ImageEncodePipeline 
+          -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
           -t=dev@hz   
-          /project/image-encode-pipeline/target/image-encode-pipeline-1.0-SNAPSHOT.jar 
+          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
           /project/images/caltech-101/101_ObjectCategories/airplanes
-    networks:
-      - hznet
-    profiles:
-      - disabled
-
-  submit-image-loader-butterfly:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
-    volumes:
-      - ".:/project"
-    command: >
-      hz-cli submit 
-          -v 
-          -c=hazelcast.platform.labs.image.similarity.ImageEncodePipeline 
-          -t=dev@hz   
-          /project/image-encode-pipeline/target/image-encode-pipeline-1.0-SNAPSHOT.jar 
-          /project/images/caltech-101/101_ObjectCategories/butterfly
+          *.jpg 
+          true 
+          false 
+          /project/image-embedding-service 
+          clip_image_encoder
     networks:
       - hznet
     profiles:
