@@ -2,6 +2,7 @@ package hazelcast.platform.labs.image.similarity;
 
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.jet.pipeline.*;
@@ -38,7 +39,7 @@ public class ImageIngestPipeline {
         pipeline.setPreserveOrder(false);   // nothing in here requires order
         JobConfig config = new JobConfig();
         config.setName("Ingest: " + inputDir);
-        hz.getJet().newJob(pipeline);
+        Job job = hz.getJet().newJob(pipeline);
     }
 
     /*
@@ -92,7 +93,9 @@ public class ImageIngestPipeline {
         PythonServiceConfig pythonService =
                 new PythonServiceConfig().setBaseDir(pythonServiceBaseDir).setHandlerModule(pythonServiceModule);
         BatchStage<String> outputs =
-                inputs.apply(PythonTransforms.mapUsingPythonBatch(pythonService)).setName("Compute Embedding");
+                inputs.apply(PythonTransforms.mapUsingPythonBatch(pythonService))
+                        .setLocalParallelism(2)  // reserve some cores for gc
+                        .setName("Compute Embedding");
 
         ServiceFactory<?, EmbeddingServiceCodec> postProcessor =
                 ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec());
