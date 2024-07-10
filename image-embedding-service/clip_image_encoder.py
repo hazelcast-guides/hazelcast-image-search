@@ -19,27 +19,32 @@ print("downloaded and initialized encoder")
 # Note: metadata is not used, it is just passed through
 #
 def transform_list(image_json: list[str]) -> list[str]:
-    inputs = [json.loads(s) for s in image_json]
-    metadata_list = [item['metadata'] for item in inputs]
+    results = []
 
-    # decode base64 strings into byte streams
-    byte_streams = [io.BytesIO(base64.b64decode(item['content'])) for item in inputs]
+    # could use list comprehensions throughout but not doing it because I need
+    # to capture exceptions on individual items
+    for j in image_json:
+        try:
+            item = json.loads(j)
+            metadata = item['metadata']
 
-    # load images from byte streams
-    images = [PIL.Image.open(b) for b in byte_streams]
+            # decode base64 string into byte stream
+            byte_stream = io.BytesIO(base64.b64decode(item['content']))
 
-    # perform encoding - returns nx512 numpy array where n is the number of inputs (images)
-    embeddings = encoder.encode(images)
+            # load image from byte streams
+            image = PIL.Image.open(byte_stream)
 
-    # close byte streams
-    for bs in byte_streams:
-        bs.close()
+            # perform encoding - returns numpy array with the embedding for this image
+            embedding = encoder.encode(image)
 
-    # embeddings is a 2d ndarray. Create a list of float arrays from it
-    floatarrays = [embeddings[i].tolist() for i in range(len(embeddings))]
+            # close byte streams
+            byte_stream.close()
 
-    # create a list of result objects that combine the result vectors and the corresponding metadata
-    results = [{'metadata': m, 'vector': v} for m, v in zip(metadata_list, floatarrays)]
+            # Create a float arrays from it
+            floatarray = embedding.tolist()
+            results.append({'metadata': metadata, 'vector': floatarray})
+        except Exception as x:
+            results.append({'exception': str(x)})
 
     # encode each float array as json and return a list of strings
     return [json.dumps(result) for result in results]

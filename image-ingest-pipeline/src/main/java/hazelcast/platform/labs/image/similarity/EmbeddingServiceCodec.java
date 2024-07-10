@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.datamodel.Tuple2;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Arrays;
 import java.util.Base64;
@@ -16,6 +18,8 @@ import java.util.Base64;
  * into q float []
  */
 public class EmbeddingServiceCodec {
+    private final Logger log = LogManager.getLogger();
+
     // safe for concurrent use
     private final ObjectMapper mapper;
     // safe for concurrent use
@@ -28,11 +32,16 @@ public class EmbeddingServiceCodec {
 
     public Tuple2<String, float[]> decodeOutput(String json) throws JsonProcessingException {
         JsonNode root = mapper.readTree(json);
+        if (root.has("exception")){
+            log.error(root.get("exception").asText());
+            return null;  // RETURN
+        }
+
         String filename = root.get("metadata").asText();
 
-        float []vector = new float[root.get("content").size()];
+        float []vector = new float[root.get("vector").size()];
         int i=0;
-        for (JsonNode node : root.get("content")) {
+        for (JsonNode node : root.get("vector")) {
             vector[i++] = (float) node.asDouble();
         }
         return Tuple2.tuple2(filename, vector);
@@ -40,7 +49,7 @@ public class EmbeddingServiceCodec {
 
     public String encodeInput(Tuple2<String, byte[]> input){
         String base64Str = b64Encoder.encodeToString(input.f1());
-        return "{ \"metadata\": \"" + input.f0() + " , \"content\": \"" + base64Str + "\" }";
+        return "{ \"metadata\": \"" + input.f0() + "\" , \"content\": \"" + base64Str + "\" }";
     }
 
     /*
