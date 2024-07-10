@@ -1,10 +1,10 @@
 services:
 
   hz:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    image: hazelcast/hazelcast-enterprise:rmay
     environment:
       HZ_LICENSEKEY: ${HZ_LICENSEKEY}
-      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC -XX:ZCollectionInterval=1
+      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
     volumes:
       - ".:/project"
     networks:
