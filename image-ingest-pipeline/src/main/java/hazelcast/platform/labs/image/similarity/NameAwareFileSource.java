@@ -1,6 +1,8 @@
 package hazelcast.platform.labs.image.similarity;
 
 import com.hazelcast.jet.datamodel.Tuple2;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -9,6 +11,8 @@ import java.nio.file.Path;
 import java.util.Iterator;
 
 public class NameAwareFileSource implements AutoCloseable {
+
+    private Logger log = LogManager.getLogger(NameAwareFileSource.class);
 
     private final DirectoryStream<Path> dirStream;
     private final Iterator<Path> iter;
@@ -56,6 +60,7 @@ public class NameAwareFileSource implements AutoCloseable {
         }
 
         try {
+            log.info("Returning contents of " + path.toString());
             return Tuple2.tuple2(path.toString(), Files.readAllBytes(path));
         } catch (IOException e) {
             throw new RuntimeException(e);
