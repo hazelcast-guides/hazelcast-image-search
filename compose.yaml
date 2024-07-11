@@ -7,8 +7,11 @@ services:
       JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
     volumes:
       - ".:/project"
+    ports:
+      - "5701:5701"
     networks:
       - hznet
+
   mc:
     image: hazelcast/management-center:5.5-SNAPSHOT
     environment:
@@ -31,6 +34,27 @@ services:
           -t=dev@hz   
           /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
           /project/images/caltech-101/101_ObjectCategories/airplanes
+          *.jpg 
+          true 
+          false 
+          /project/image-embedding-service 
+          clip_image_encoder
+    networks:
+      - hznet
+    profiles:
+      - disabled
+
+  submit-image-loader-butterfly:
+    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    volumes:
+      - ".:/project"
+    command: >
+      hz-cli submit 
+          -v 
+          -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
+          -t=dev@hz   
+          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
+          /project/images/caltech-101/101_ObjectCategories/butterfly
           *.jpg 
           true 
           false 
