@@ -1,10 +1,10 @@
 services:
 
-  hz:
+  hz1:
     image: hazelcast/hazelcast-enterprise:rmay
     environment:
       HZ_LICENSEKEY: ${HZ_LICENSEKEY}
-      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
+      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Dlog4j.configurationFile=/project/log4j2.properties  -Xmx5g  -XX:+UseZGC
     volumes:
       - ".:/project"
     ports:
@@ -12,11 +12,37 @@ services:
     networks:
       - hznet
 
+  hz2:
+    image: hazelcast/hazelcast-enterprise:debug
+    environment:
+      HZ_LICENSEKEY: ${HZ_LICENSEKEY}
+      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
+      LOGGING_CONFIG: /project/log4j2.properties
+    volumes:
+      - ".:/project"
+    ports:
+      - "5702:5701"
+    networks:
+      - hznet
+
+  hz3:
+    image: hazelcast/hazelcast-enterprise:debug
+    environment:
+      HZ_LICENSEKEY: ${HZ_LICENSEKEY}
+      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
+      LOGGING_CONFIG: /project/log4j2.properties
+    volumes:
+      - ".:/project"
+    ports:
+      - "5703:5701"
+    networks:
+      - hznet
+
   mc:
     image: hazelcast/management-center:5.5-SNAPSHOT
     environment:
       MC_DEFAULT_CLUSTER: dev
-      MC_DEFAULT_CLUSTER_MEMBERS: hz:5701
+      MC_DEFAULT_CLUSTER_MEMBERS: hz1:5701
     ports:
       - "8080:8080"
     networks:
@@ -31,7 +57,7 @@ services:
       hz-cli submit 
           -v 
           -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
-          -t=dev@hz   
+          -t=dev@hz1   
           /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
           /project/images/caltech-101/101_ObjectCategories/airplanes
           *.jpg 
@@ -52,7 +78,7 @@ services:
       hz-cli submit 
           -v 
           -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
-          -t=dev@hz   
+          -t=dev@hz1   
           /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
           /project/images/caltech-101/101_ObjectCategories/butterfly
           *.jpg 
@@ -60,6 +86,23 @@ services:
           false 
           /project/image-embedding-service 
           clip_image_encoder
+    networks:
+      - hznet
+    profiles:
+      - disabled
+
+  submit-directory-watcher-test:
+    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    volumes:
+      - ".:/project"
+    command: >
+      hz-cli submit 
+          -v 
+          -c=hazelcast.platform.labs.jet.connectors.DirectoryWatcherTestPipeline 
+          -t=dev@hz1   
+          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
+          /project/www
+          .jpg
     networks:
       - hznet
     profiles:
