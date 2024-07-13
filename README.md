@@ -14,3 +14,8 @@ The String/String interface on mapUsingPython
 
 mapUsingPython fails to initialize, probably because of flock
 
+# Known Issues
+
+1. The DirectoryWatcher provided in this project does not detect file deletes.  Currently it will only issue 
+   events when files are added or updated.
+2. 
