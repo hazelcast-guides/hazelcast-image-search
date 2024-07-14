@@ -7,17 +7,10 @@ import sentence_transformers
 
 if __name__ == '__main__':
     t0 = time.time()
-    test_images = ['/Users/rmay/Documents/projects/hazelcast-image-search/images/caltech-101/101_ObjectCategories/dragonfly/image_0003.jpg',
-                   '/Users/rmay/Documents/projects/hazelcast-image-search/images/caltech-101/101_ObjectCategories/dragonfly/image_0002.jpg']
+    test_images = ['http://localhost:8888/dragonfly_0003.jpg',
+                   'http://localhost:8888/dragonfly_0002.jpg']
 
-    test_image_bytes = []
-    for fname in test_images:
-        with open(fname,'rb') as f:
-            test_image_bytes.append(base64.b64encode(f.read()).decode('ascii'))
-
-    inputs = [{'metadata': fn, 'content': b} for fn,b in zip(test_images, test_image_bytes)]
-
-    embeddings = clip_image_encoder.transform_list([json.dumps(input) for input in inputs])
+    embeddings = clip_image_encoder.transform_list(test_images)
 
     outputs = [json.loads(r) for r in embeddings]
 

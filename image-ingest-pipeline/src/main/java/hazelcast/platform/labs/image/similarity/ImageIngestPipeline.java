@@ -10,6 +10,8 @@ import com.hazelcast.jet.python.PythonServiceConfig;
 import com.hazelcast.jet.python.PythonTransforms;
 import com.hazelcast.vector.VectorValues;
 import com.hazelcast.vector.jet.VectorSinks;
+import hazelcast.platform.labs.jet.connectors.DirectoryWatcher;
+import hazelcast.platform.labs.jet.connectors.DirectoryWatcherSourceBuilder;
 
 /*
  *
@@ -19,23 +21,20 @@ public class ImageIngestPipeline {
 
     public static void main(String []args){
         // TODO make argument handling prettier
-        if (args.length != 6){
-            System.err.println("Please provide the following 6 parameters: inputDir, fileGlob, distributeReadFlag, distributeEmbeddingFlag, pythonServiceDir, pythonServiceModule");
+        if (args.length != 5){
+            System.err.println("Please provide the following 5 parameters: inputDir, fileSuffix (no glob!), www_server, pythonServiceDir, pythonServiceModule");
             System.exit(1);
         }
 
         String inputDir = args[0];
-        String fileGlob = args[1];
-        boolean distributeReads = Boolean.parseBoolean(args[2]);
-        boolean distributeEmbedding = Boolean.parseBoolean(args[3]);
-        String pythonServiceDir = args[4];
-        String pythonServiceModule = args[5];
-
-        int fileSourceBatchSize = 2;
+        String fileSuffix = args[1];
+        String wwwServer = args[2];
+        String pythonServiceDir = args[3];
+        String pythonServiceModule = args[4];
 
         HazelcastInstance hz = Hazelcast.bootstrappedInstance();
 
-        Pipeline pipeline = createPipeline(inputDir, fileGlob, fileSourceBatchSize,distributeReads, distributeEmbedding, pythonServiceDir, pythonServiceModule);
+        Pipeline pipeline = createPipeline(inputDir, fileSuffix, wwwServer, pythonServiceDir, pythonServiceModule);
         pipeline.setPreserveOrder(false);   // nothing in here requires order
         JobConfig config = new JobConfig();
         config.setName("Ingest: " + inputDir);
@@ -46,60 +45,47 @@ public class ImageIngestPipeline {
      * Will encode jpg format image files stored in dir. The source could be run on any nodes
      * so all nodes need to have access to "dir" whether through a copy or a shared file  system.
      *
-     * Setting distributeReads to true will cause the source to assume it is running on a shared file system and
-     * will cause each node to read a different subset of the files in dir.  This will also implicitly cause
-     * the encoding task to be distributed as well.
+     * The source will run on a random node and emit events containing information about files
+     * that have been added to the watched directory.
      *
-     * Setting distributeEmbedding to true will insert a rebalance step into the pipeline between reading an
-     * input file and performing vector encoding.  This will cause the encoding task to be distributed, but it
-     * will require the raw image bytes to be moved across nodes.  If distributeReads is true then no
-     * additional rebalance step will be added regardless of this setting.
+     * These change events will be redistributed to all nodes so that the task of encoding can be shared.
+     *
+     * The python embedding service will issue a HTTP GET to retrieve the new image and generate a
+     * vector encoding for it.
      */
     private static Pipeline createPipeline(
             String dir,
-            String glob,
-            int fileSourceBatchSize,
-            boolean distributeReads,
-            boolean distributeEmbedding,
+            String suffix,
+            String wwwServer,
             String pythonServiceBaseDir,
             String pythonServiceModule){
         Pipeline pipeline = Pipeline.create();
 
-        /*
-         * Create a local file source pointing to the csv file containing patent abstracts.  The
-         * source emits one event per line in the file.
-         */
-        BatchSource<Tuple2<String,byte[]>> directory;
+        StreamSource<Tuple2<DirectoryWatcher.EventType, String>> directoryWatcher =
+                DirectoryWatcherSourceBuilder.newDirectoryWatcher(dir, suffix);
+        StreamStage<Tuple2<DirectoryWatcher.EventType, String>> changeEvents =
+                pipeline.readFrom(directoryWatcher).withoutTimestamps().setName("Watch for Changes");
 
-        if (distributeReads)
-            directory = NameAwareFileSourceBuilder.newDistributedFileSource(dir, glob, fileSourceBatchSize);
-        else
-            directory = NameAwareFileSourceBuilder.newFileSource(dir, glob, fileSourceBatchSize);
-
-        BatchStage<Tuple2<String, byte[]>> imageBytes = pipeline.readFrom(directory).setName("Read Files");
-
-        /*
-         * distribute the stream to all nodes if indicated by the flags
-         */
-        if ( !distributeReads && distributeEmbedding)
-            imageBytes = imageBytes.rebalance().setName("Distribute Images");
-
+        // redistribute
+        changeEvents = changeEvents.rebalance();
+        
+        // prepare input 
         ServiceFactory<?, EmbeddingServiceCodec> preProcessor =
-                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec());
-        BatchStage<String> inputs = imageBytes.mapUsingService(preProcessor, EmbeddingServiceCodec::encodeInput)
-                .setName("Format Input");
+                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec(wwwServer));
+        StreamStage<String> imageURLS =
+                changeEvents.mapUsingService(preProcessor, EmbeddingServiceCodec::encodeInput).setName("Prepare Input");
 
         // compute embeddings in python
         PythonServiceConfig pythonService =
                 new PythonServiceConfig().setBaseDir(pythonServiceBaseDir).setHandlerModule(pythonServiceModule);
-        BatchStage<String> outputs =
-                inputs.apply(PythonTransforms.mapUsingPythonBatch(pythonService))
+        StreamStage<String> outputs =
+                imageURLS.apply(PythonTransforms.mapUsingPython(pythonService))
                         .setLocalParallelism(2)  // reserve some cores for gc
                         .setName("Compute Embedding");
 
         ServiceFactory<?, EmbeddingServiceCodec> postProcessor =
-                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec());
-        BatchStage<Tuple2<String, float[]>> vectors =
+                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec(wwwServer));
+        StreamStage<Tuple2<String, float[]>> vectors =
                 outputs.mapUsingService(postProcessor, EmbeddingServiceCodec::decodeOutput).setName("Parse Output");
 
         Sink<Tuple2<String, float[]>> vectorCollection =
@@ -110,6 +96,7 @@ public class ImageIngestPipeline {
                         t -> VectorValues.of(t.f1()));  // vector
 
         vectors.writeTo(vectorCollection);
+        vectors.writeTo(Sinks.logger( t2 -> "Stored embedding for " + t2.f0()));
 
         return pipeline;
     }

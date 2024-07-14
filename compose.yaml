@@ -48,8 +48,18 @@ services:
     networks:
       - hznet
 
+  www:
+    image: python:3
+    volumes:
+      - ".:/project"
+    ports:
+      - "8888:8888"
+    command: python -m http.server 8888 -d /project/www
+    networks:
+      - hznet
 
-  submit-image-loader-airplanes:
+
+  submit-image-loader:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     volumes:
       - ".:/project"
@@ -59,10 +69,9 @@ services:
           -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
           -t=dev@hz1   
           /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
-          /project/images/caltech-101/101_ObjectCategories/airplanes
-          *.jpg 
-          true 
-          false 
+          /project/www
+          .jpg
+          http://www:8888 
           /project/image-embedding-service 
           clip_image_encoder
     networks:
@@ -70,27 +79,8 @@ services:
     profiles:
       - disabled
 
-  submit-image-loader-butterfly:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
-    volumes:
-      - ".:/project"
-    command: >
-      hz-cli submit 
-          -v 
-          -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
-          -t=dev@hz1   
-          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
-          /project/images/caltech-101/101_ObjectCategories/butterfly
-          *.jpg 
-          true 
-          false 
-          /project/image-embedding-service 
-          clip_image_encoder
-    networks:
-      - hznet
-    profiles:
-      - disabled
 
+  # this job is only useful during testing
   submit-directory-watcher-test:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     volumes:
