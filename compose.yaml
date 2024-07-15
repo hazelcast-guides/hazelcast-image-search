@@ -1,40 +1,12 @@
 services:
 
-  hz1:
+  hz:
     image: hazelcast/hazelcast-enterprise:rmay
     environment:
       HZ_LICENSEKEY: ${HZ_LICENSEKEY}
       JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Dlog4j.configurationFile=/project/log4j2.properties  -Xmx5g  -XX:+UseZGC
     volumes:
       - ".:/project"
-    ports:
-      - "5701:5701"
-    networks:
-      - hznet
-
-  hz2:
-    image: hazelcast/hazelcast-enterprise:debug
-    environment:
-      HZ_LICENSEKEY: ${HZ_LICENSEKEY}
-      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
-      LOGGING_CONFIG: /project/log4j2.properties
-    volumes:
-      - ".:/project"
-    ports:
-      - "5702:5701"
-    networks:
-      - hznet
-
-  hz3:
-    image: hazelcast/hazelcast-enterprise:debug
-    environment:
-      HZ_LICENSEKEY: ${HZ_LICENSEKEY}
-      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Xmx5g  -XX:+UseZGC
-      LOGGING_CONFIG: /project/log4j2.properties
-    volumes:
-      - ".:/project"
-    ports:
-      - "5703:5701"
     networks:
       - hznet
 
@@ -42,7 +14,7 @@ services:
     image: hazelcast/management-center:5.5-SNAPSHOT
     environment:
       MC_DEFAULT_CLUSTER: dev
-      MC_DEFAULT_CLUSTER_MEMBERS: hz1:5701
+      MC_DEFAULT_CLUSTER_MEMBERS: hz:5701
     ports:
       - "8080:8080"
     networks:
@@ -53,11 +25,20 @@ services:
     volumes:
       - ".:/project"
     ports:
-      - "8888:8888"
-    command: python -m http.server 8888 -d /project/www
+      - "8000:8000"
+    command: python -m http.server 8000 -d /project/www
     networks:
       - hznet
 
+  ui:
+    build:
+      context: ui
+    ports:
+      - "8888:8888"
+    volumes:
+      - ".:/project"
+    networks:
+      - hznet
 
   submit-image-loader:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
@@ -67,32 +48,13 @@ services:
       hz-cli submit 
           -v 
           -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
-          -t=dev@hz1   
+          -t=dev@hz  
           /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
           /project/www
           .jpg
-          http://www:8888 
+          http://www:8000 
           /project/image-embedding-service 
           clip_image_encoder
-    networks:
-      - hznet
-    profiles:
-      - disabled
-
-
-  # this job is only useful during testing
-  submit-directory-watcher-test:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
-    volumes:
-      - ".:/project"
-    command: >
-      hz-cli submit 
-          -v 
-          -c=hazelcast.platform.labs.jet.connectors.DirectoryWatcherTestPipeline 
-          -t=dev@hz1   
-          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
-          /project/www
-          .jpg
     networks:
       - hznet
     profiles:
