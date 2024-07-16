@@ -1,7 +1,7 @@
 import sentence_transformers
 
-print('started')
+print('downloading model ...')
 encoder = sentence_transformers.SentenceTransformer('clip-ViT-B-32')
-print('downloaded')
+print('done. saving ...')
 encoder.save('../models/clip-ViT-B-32')
-print('saved')
+print('done')

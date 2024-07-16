@@ -30,13 +30,17 @@ services:
     networks:
       - hznet
 
-  ui:
+  jupyter:
     build:
-      context: ui
+      context: python-container
     ports:
       - "8888:8888"
     volumes:
       - ".:/project"
+    working_dir: /project/ui
+    environment:
+      PYTHONPATH: /root/hazelcast-python-client
+    command: jupyter notebook --allow-root --port=8888 --ip=* --no-browser
     networks:
       - hznet
 
@@ -55,6 +59,19 @@ services:
           http://www:8000 
           /project/image-embedding-service 
           clip_image_encoder
+    networks:
+      - hznet
+    profiles:
+      - disabled
+
+  download-model:
+    build:
+      context: python-container
+    volumes:
+      - ".:/project"
+    working_dir:
+      /project/image-embedding-service
+    command: python model_downloader.py
     networks:
       - hznet
     profiles:
