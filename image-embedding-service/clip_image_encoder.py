@@ -5,7 +5,7 @@ import PIL.Image
 import requests
 import sentence_transformers
 
-encoder = sentence_transformers.SentenceTransformer('clip-ViT-B-32')
+encoder = sentence_transformers.SentenceTransformer('/project/models/clip-ViT-B-32')
 print("downloaded and initialized encoder")
 
 
