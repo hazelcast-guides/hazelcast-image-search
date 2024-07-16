@@ -91,7 +91,7 @@ public class ImageIngestPipeline {
         Sink<Tuple2<String, float[]>> vectorCollection =
                 VectorSinks.vectorCollection(
                         "images",    // collection name
-                        Tuple2::f0,               // kee
+                        Tuple2::f0,               // key
                         Tuple2::f0,               // val
                         t -> VectorValues.of(t.f1()));  // vector
 
