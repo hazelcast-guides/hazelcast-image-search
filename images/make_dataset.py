@@ -8,5 +8,8 @@ for category in os.listdir(base):
     if os.path.isdir(category_dir):
         for n in range(1, 21):
             suffix = f'{n:04d}'
-            shutil.copy(os.path.join(category_dir, f'image_{suffix}.jpg'), f'{category}_{suffix}.jpg')
-
+            source_path = os.path.join(category_dir, f'image_{suffix}.jpg')
+            bucket = f'{hash(source_path) % 10:02d}'
+            os.makedirs(bucket, exist_ok=True)
+            target = os.path.join(bucket, f'{category}_{suffix}.jpg')
+            shutil.copy(source_path, target)
