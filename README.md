@@ -33,7 +33,12 @@ This demonstration needs to download quite a few python packages, docker
 images, etc..
 
 # Setup 
+The model we will be using to perform embedding is almost 500M.  To speed 
+up everything that uses the model, we can download it ahead of time.
 
+Run `docker compose run download-model`
+
+Verify that the `models` folder of the project has been populated.
 
 # Obtain Images
 
