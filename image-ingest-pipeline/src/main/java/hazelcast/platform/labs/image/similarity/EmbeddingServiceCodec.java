@@ -4,14 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.datamodel.Tuple2;
-import hazelcast.platform.labs.jet.connectors.DirectoryWatcher;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /*
  * The python service we use for calculating embeddings is limited to a single
- * String for input and another for output.  This class is responsible for
- * mapping the input events into String and turning the output from the
+ * String for input and another for output.  This class is responsible for turning the output from the
  * python service into Java events that are consumable by the rest of the Pipeline
  */
 public class EmbeddingServiceCodec {
@@ -19,10 +17,8 @@ public class EmbeddingServiceCodec {
 
     // safe for concurrent use
     private final ObjectMapper mapper;
-    private final String wwwServer;
 
-    public EmbeddingServiceCodec(String wwwServer){
-        this.wwwServer = wwwServer;
+    public EmbeddingServiceCodec(){
         this.mapper = new ObjectMapper();
     }
 
@@ -57,14 +53,6 @@ public class EmbeddingServiceCodec {
             vector[i++] = (float) node.asDouble();
         }
         return Tuple2.tuple2(filename, vector);
-    }
-
-    /*
-     * The input event is a string containing the name of the file that changed.  We use that
-     * file name to construct the URL from which the image can be retrieved.
-     */
-    public String encodeInput(Tuple2<DirectoryWatcher.EventType, String> input){
-        return wwwServer + "/" + input.f1();
     }
 
 }

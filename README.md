@@ -130,9 +130,23 @@ When you are ready to test the pipeline...
 4. to generate events, copy some images from the _images_ folder 
    into the _www_ folder.  A new pipeline event will be created 
    for each image.
+5. To undeploy the job, use the Hazelcast Management Center. Navigate
+   to "Jobs"
 
 Iterate on the pipeline until you have finished the whole thing, and you are 
 sinking vectors into Hazelcast with no errors.
+
+Once you have the python service in your pipeline, it will take some time to 
+initialize (up to 5 minutes) because it has to download and install a lot of 
+python packages.  You will see something like the following in the hazelcast logs when 
+the python stream stage has initialized.
+
+```bash
+hazelcast-image-search-hz-1  | 2024-07-17 19:18:41,881 [ INFO] [hz.magical_joliot.cached.thread-7] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Started Python process: 246
+hazelcast-image-search-hz-1  | 2024-07-17 19:18:41,881 [ INFO] [hz.magical_joliot.cached.thread-3] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Started Python process: 245
+hazelcast-image-search-hz-1  | 2024-07-17 19:18:43,786 [ INFO] [hz.magical_joliot.cached.thread-7] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Python process 246 listening on port 39819
+hazelcast-image-search-hz-1  | 2024-07-17 19:18:43,819 [ INFO] [hz.magical_joliot.cached.thread-3] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Python process 245 listening on port 39459
+```
 
 > __NOTE:__
 > 

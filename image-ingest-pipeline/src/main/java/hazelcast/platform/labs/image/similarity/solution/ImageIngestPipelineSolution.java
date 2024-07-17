@@ -71,10 +71,8 @@ public class ImageIngestPipelineSolution {
         changeEvents = changeEvents.rebalance();
         
         // prepare input 
-        ServiceFactory<?, EmbeddingServiceCodec> preProcessor =
-                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec(wwwServer));
         StreamStage<String> imageURLS =
-                changeEvents.mapUsingService(preProcessor, EmbeddingServiceCodec::encodeInput).setName("Prepare Input");
+                changeEvents.map( t2 -> wwwServer + "/" + t2.f1()).setName("Prepare Input");
 
         // compute embeddings in python
         PythonServiceConfig pythonService =
@@ -85,7 +83,7 @@ public class ImageIngestPipelineSolution {
                         .setName("Compute Embedding");
 
         ServiceFactory<?, EmbeddingServiceCodec> postProcessor =
-                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec(wwwServer));
+                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec());
         StreamStage<Tuple2<String, float[]>> vectors =
                 outputs.mapUsingService(postProcessor, EmbeddingServiceCodec::decodeOutput).setName("Parse Output");
 
