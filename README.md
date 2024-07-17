@@ -151,7 +151,40 @@ hazelcast-image-search-hz-1  | 2024-07-17 19:18:43,819 [ INFO] [hz.magical_jolio
 > __NOTE:__
 > 
 > A solution pipeline is available in the 
-> _hazelcast.platform.labs.image.similarity.solution_ package. 
+> _hazelcast.platform.labs.image.similarity.solution_ package.  If you wish, you 
+> can bypass building the pipeline and directly deploy the solution by running 
+> `docker compose run submit-image-loader-solution`
+
+## 4. Perform a nearest neighbor search
+
+You will do the rest of the lab in a Jupyter notebook.  To access Jupyter,
+run `docker compose logs jupyter`.  You will see something simular to 
+what is below.
+
+```bash
+hazelcast-image-search-jupyter-1  | [C 2024-07-17 19:57:47.478 ServerApp]
+hazelcast-image-search-jupyter-1  |
+hazelcast-image-search-jupyter-1  |     To access the server, open this file in a browser:
+hazelcast-image-search-jupyter-1  |         file:///root/.local/share/jupyter/runtime/jpserver-1-open.html
+hazelcast-image-search-jupyter-1  |     Or copy and paste one of these URLs:
+hazelcast-image-search-jupyter-1  |         http://localhost:8888/tree?token=7a4d2794d4135eaa88ee9e9642e80e7044cb5c213717e2be
+hazelcast-image-search-jupyter-1  |         http://127.0.0.1:8888/tree?token=7a4d2794d4135eaa88ee9e9642e80e7044cb5c213717e2be
+haz
+```
+
+> __NOTE:__ 
+> Some errors in the log are expected and can be safely ignored.  The lines you are 
+> looking for should be near the top of the output.
+
+
+Copy the URL from the output and paste it into a browser window.  This should 
+bring up a Jupyter notebook.  Double-click on the "Hazelcast Image Similarity" 
+notebook to open it and follow the directions there.
+
+# The End
+
+You should now be able to load unstructured data into a Hazelcast vector 
+collection and perform similarity searches.
 
 # Known Issues
 
