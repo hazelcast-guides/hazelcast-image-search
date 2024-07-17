@@ -143,7 +143,7 @@ public class ImageIngestPipeline {
          * For debugging purposes, finish the pipeline with a logging sink and then test it by deploying
          * it per the instructions in the README.  Remove this sink in the final pipeline.
          */
-        outputs.writeTo(Sinks.logger());
+        //outputs.writeTo(Sinks.logger());
 
         /*
          * Use mapUsingService to decode the output.  The python stage emits json encoded strings.
@@ -170,13 +170,13 @@ public class ImageIngestPipeline {
          *      function to extract the value - pass the URL of the image as the value as well
          *      function to build an instance of VectorValue from the array of floats in tuple.f1()
          *
-         *  You can construct a VectorValue instance with Vector.valuesOf(an-array-of-floats)
+         *  You can construct a VectorValue instance with VectorValues.Of(an-array-of-floats)
          *
          * When you have created a vector sink, finish the pipeline by writing it to the sink.
          */
         Sink<Tuple2<String, float[]>> vectorCollectionSink = null;
 
-        vectors.writeTo(vectorCollectionSink);
+        //vectors.writeTo(vectorCollectionSink);
 
         return pipeline;
     }
