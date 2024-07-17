@@ -69,6 +69,15 @@ public class ImageIngestPipeline {
      *    You can then deploy the pipeline and observe the output (see  README.md for instructions).
      *
      *    To add a logging sink:   aStreamStage.writeTo(Sinks.logger())
+     *
+     *    You can also directly run this file in the debugger.  You will have to set up the run configuration as
+     *    follows:
+     *      set the HZ_LICENSEKEY environment variable to the value of your license (from .env)
+     *      add the following JVM argument: -Dhazelcast.config=hazelcast.yaml
+     *      pass the following command line arguments: www .jpg http://localhost:8000 image-embedding-service clip_image_encoder
+     *
+     *    To make the images available, you will need to run the www server: docker compose up -d wwww
+     *  
      */
     private static Pipeline createPipeline(
             String dir,

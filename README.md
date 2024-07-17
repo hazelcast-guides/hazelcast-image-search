@@ -127,6 +127,9 @@ When you are ready to test the pipeline...
 1. build the project: `mvn clean package`
 2. deploy the pipeline: `docker compose run deploy-image-loader`
 3. monitor the logs: `docker compose logs --follow hz`
+4. to generate events, copy some images from the _images_ folder 
+   into the _www_ folder.  A new pipeline event will be created 
+   for each image.
 
 Iterate on the pipeline until you have finished the whole thing, and you are 
 sinking vectors into Hazelcast with no errors.
