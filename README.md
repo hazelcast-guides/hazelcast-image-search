@@ -27,32 +27,114 @@ See the blueprint below.
 # Prerequisites
 
 - Docker Desktop
-- An Internet Connection
+- A Java IDE
+- A Hazelcast Enterprise license key with "Advanced AI" enabled.
 
-This demonstration needs to download quite a few python packages, docker 
-images, etc..
+> __NOTE:__
+> 
+> This lab needs to download quite a few python packages, docker 
+> images, etc..  You will need a good internet connection to run it.
 
-# Setup 
+You will also need basic knowledge of both Java and Python to complete the 
+hands-on portions of this lab.
+
+# Useful Resources
+
+Hazelcast Pipeline API Documentation
+- https://docs.hazelcast.com/hazelcast/5.5-snapshot/pipelines/overview
+- https://docs.hazelcast.org/docs/5.4.0/javadoc/com/hazelcast/jet/pipeline/StreamStage.html
+
+
+# 1x Setup
+
+These steps need to be done once berfore starting the lab.
+
+## 1. Download the CLIP model
 The model we will be using to perform embedding is almost 500M.  To speed 
 up everything that uses the model, we can download it ahead of time.
 
 Run `docker compose run download-model`
 
-Verify that the `models` folder of the project has been populated.
+Verify that the _models_ folder of the project has been populated.
 
-# Obtain Images
+## 2. Install your license
+This docker compose bsed project is configured to read the license from 
+the default docker compose property file, _.env_.
 
-Download https://data.caltech.edu/records/mzrjq-6wc02/files/caltech-101.zip  and place it in
-the `images` folder.  Unpack it, then unpack `caltech-101/101_ObjectCategories.tar.gz`.  You should end up with multiple directories underneath `images/caltech-101/101_ObjectCategories`, each containing multiple images.
+Create _.env_ (note the file name begins with a _dot_) in the project base 
+directory.  Set the _HZ_LICENSEKEY_ variable to your license, as shown below.
+```
+HZ_LICENSEKEY=Your-License-Here
+```
+
+# Walk Through
+
+## 1. Configure The Vector Collection
+
+```yaml
+hazelcast:
+  properties:
+    hazelcast.logging.type: log4j2
+    hazelcast.partition.count: 13
+
+  jet:
+    enabled: True
+    resource-upload-enabled: True
+
+  vector-collection:
+    images:
+      indexes:
+        - name: semantic-search
+          dimension: 512
+          metric: COSINE
+```
 
 
-# Issues
+This has already been done.  Please review _hazelcast.yaml_ (copied above) and 
+note the following points.
 
-No visibility of vector collections in man center.
+- _hazelcast.partition.count_: Vector search performs better with fewer partitions. 
+On the other hand, fewer partitions means larger partitions, which can cause 
+problems during migration.  A discussion of the tradeoffs can be found here
+  (https://docs.hazelcast.com/hazelcast/5.5-snapshot/data-structures/vector-search-overview#partition-count-impact).
+- _jet_.  This is the Hazelcast stream processing engine.  Hazelcast pipelines 
+are a scalable way to rapidly ingest or process large amounts of data.  In 
+this example, we use a pipeline to compute embeddings and load them 
+into a vector collection so stream processing must be enabled.
+- _vector-collection_: Vector collections and their indices must be configured 
+before they are used.  In this case, the name of the collection is _images_ and 
+it has one index, which is called _semantic-search_.  The dimension and 
+distance metric are dependent on the embedding being used. The _dimension_ 
+must match the size of the vectors produced by the embedding.  The _metric_ defines 
+the algorithm used to compute the distance between 2 vectors and it must 
+match the one used to train the embedding.  In this case, the dimension of the 
+vectors is 512 and the distance metric is cosine distance (literally the cosine 
+of the angle between 2 vectors, adjusted to be non-negative). The options 
+supported are documented here (https://docs.hazelcast.com/hazelcast/5.5-snapshot/data-structures/vector-collections).
 
-The String/String interface on mapUsingPython
+## 2. Start the environment.
 
-mapUsingPython fails to initialize, probably because of flock
+`docker compose up -d`
+
+The Hazelcast Management Center is accessible at : http://localhost:8080
+
+## 3. Build and test the ingestion pipeline
+
+Follow the guidance and instructions in _ImageIngestPipeline.java_ 
+(in the _image-ingest-pipeline_ module).  
+
+When you are ready to test the pipeline...
+1. build the project: `mvn clean package`
+2. deploy the pipeline: `docker compose run deploy-image-loader`
+3. monitor the logs: `docker compose logs --follow hz`
+
+Iterate on the pipeline until you have finished the whole thing, and you are 
+sinking vectors into Hazelcast with no errors.
+
+> __NOTE:__
+> 
+> A solution pipeline is available in the 
+> _hazelcast.platform.labs.image.similarity.solution_ package. 
 
 # Known Issues
 
@@ -62,5 +144,5 @@ mapUsingPython fails to initialize, probably because of flock
    it will not be removed from the vector collection.
 3. If too many images are dumped into `www` at the same time, the pipeline will break with a 
   'grpc max message size exceeded' message.
-4. Deploying the pipeline can take 5-10 minutes depending on your internet connection.  This is due to the need 
+4. Deploying the pipeline can take 2-10 minutes depending on your internet connection.  This is due to the need 
    to download many python packages.  

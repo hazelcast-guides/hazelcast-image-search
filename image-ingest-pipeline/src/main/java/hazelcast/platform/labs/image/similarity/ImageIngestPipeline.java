@@ -14,15 +14,33 @@ import hazelcast.platform.labs.jet.connectors.DirectoryWatcher;
 import hazelcast.platform.labs.jet.connectors.DirectoryWatcherSourceBuilder;
 
 /*
- *
+ *  This Pipeline will
+ *  1. Watch a directory for the addition of new files
+ *  2. Use a Python-based service to retrieve the new image over HTTP and compute the corresponding embedding.
+ *  3. Write the resulting vectors into a Hazelcast vector collection
  */
 public class ImageIngestPipeline {
-
-
+    /*
+     * This pipeline requires the following 5 arguments in the order given below
+     *
+     * inputDir         File system path to the directory to be watched.  Note that this path will be interpreted
+     *                  on the Hazelcast servers.
+     *
+     * fileSuffix       The file type to watch.  This is not a "glob".  To watch ".jpg" files, simply pass ".jpg"
+     *
+     * wwwServer        The host name of the web server that hosts the images.  This value will be used on
+     *                  the Hazelcast servers to construct a URL from which to retrieve new images for encoding.
+     *
+     * pythonServiceDir This is the directory on the client that contains the python embedding code.  When the
+     *                  job is submitted, this directory will be sent to the Hazelcast servers.
+     *
+     * pythonServiceModule  The name of the python file (without .py) that contains the function that creates
+     *                      the embeddings.  The function should be named "transform_list" and it should
+     *                      take a list[str] for input and return a corresponding list[str] for output.
+     */
     public static void main(String []args){
-        // TODO make argument handling prettier
         if (args.length != 5){
-            System.err.println("Please provide the following 5 parameters: inputDir, fileSuffix (no glob!), www_server, pythonServiceDir, pythonServiceModule");
+            System.err.println("Please provide the following 5 parameters: inputDir, fileSuffix (no glob!), wwwServer, pythonServiceDir, pythonServiceModule");
             System.exit(1);
         }
 
@@ -32,6 +50,7 @@ public class ImageIngestPipeline {
         String pythonServiceDir = args[3];
         String pythonServiceModule = args[4];
 
+        // the code below is standard for jobs that
         HazelcastInstance hz = Hazelcast.bootstrappedInstance();
 
         Pipeline pipeline = createPipeline(inputDir, fileSuffix, wwwServer, pythonServiceDir, pythonServiceModule);
@@ -42,16 +61,14 @@ public class ImageIngestPipeline {
     }
 
     /*
-     * Will encode jpg format image files stored in dir. The source could be run on any nodes
-     * so all nodes need to have access to "dir" whether through a copy or a shared file  system.
+     * Complete this Pipeline
      *
-     * The source will run on a random node and emit events containing information about files
-     * that have been added to the watched directory.
+     * Debugging Tips
      *
-     * These change events will be redistributed to all nodes so that the task of encoding can be shared.
+     *    At any stage, you can complete the pipeline by sinking the pipeline to a logging sink.
+     *    You can then deploy the pipeline and observe the output (see  README.md for instructions).
      *
-     * The python embedding service will issue a HTTP GET to retrieve the new image and generate a
-     * vector encoding for it.
+     *    To add a logging sink:   aStreamStage.writeTo(Sinks.logger())
      */
     private static Pipeline createPipeline(
             String dir,
@@ -61,42 +78,96 @@ public class ImageIngestPipeline {
             String pythonServiceModule){
         Pipeline pipeline = Pipeline.create();
 
+        /*
+         * This custom source emits (event type, changed file name) tuples.  Currently, the
+         * only event type returned is ADD.
+         *
+         * This source is non-distributed, which means it will run on one arbitrarily chosen node in the cluster.
+         */
         StreamSource<Tuple2<DirectoryWatcher.EventType, String>> directoryWatcher =
                 DirectoryWatcherSourceBuilder.newDirectoryWatcher(dir, suffix);
         StreamStage<Tuple2<DirectoryWatcher.EventType, String>> changeEvents =
                 pipeline.readFrom(directoryWatcher).withoutTimestamps().setName("Watch for Changes");
 
-        // redistribute
-        changeEvents = changeEvents.rebalance();
-        
-        // prepare input 
-        ServiceFactory<?, EmbeddingServiceCodec> preProcessor =
-                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec(wwwServer));
-        StreamStage<String> imageURLS =
-                changeEvents.mapUsingService(preProcessor, EmbeddingServiceCodec::encodeInput).setName("Prepare Input");
+        /*
+         * TODO: The events all originate on a single server. Unless forced,  subsequent processing will
+         *        remain on the same server.  In order to distribute the work, rebalance the stream.
+         *        See: https://docs.hazelcast.org/docs/5.4.0/javadoc/com/hazelcast/jet/pipeline/StreamStage.html#rebalance()
+         */
+        StreamStage<Tuple2<DirectoryWatcher.EventType, String>> rebalancedEvents = null;
 
-        // compute embeddings in python
-        PythonServiceConfig pythonService =
-                new PythonServiceConfig().setBaseDir(pythonServiceBaseDir).setHandlerModule(pythonServiceModule);
-        StreamStage<String> outputs =
-                imageURLS.apply(PythonTransforms.mapUsingPython(pythonService))
-                        .setLocalParallelism(2)  // reserve some cores for gc
-                        .setName("Compute Embedding");
+        /*
+         * TODO: Change the format of the input to match what is expected by the python embedding
+         *       service.  Use a "map" stage (https://docs.hazelcast.org/docs/5.4.0/javadoc/com/hazelcast/jet/pipeline/StreamStage.html#map(com.hazelcast.function.FunctionEx)
+         *       to change the filename into a URL.
+         *       Example: if the filename  = "myimage.jpg", the URL would be wwwServer + "/" + filename
+         *
+         *       Note that the input event is a Tuple2 (https://docs.hazelcast.org/docs/5.4.0/javadoc/com/hazelcast/jet/datamodel/Tuple2.html)
+         *       The filename is in the second part of the tuple and can be accessed with tuple.f1()
+         */
+        StreamStage<String> inputs = null;
 
-        ServiceFactory<?, EmbeddingServiceCodec> postProcessor =
-                ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec(wwwServer));
-        StreamStage<Tuple2<String, float[]>> vectors =
-                outputs.mapUsingService(postProcessor, EmbeddingServiceCodec::decodeOutput).setName("Parse Output");
+        /*
+         * Now use mapUsingPython to call the python embedding service.
+         * See the example here: https://docs.hazelcast.com/hazelcast/5.4/pipelines/python
+         *
+         * Notes: create the PythonServiceConfig with the following arguments
+         *        baseDir: This is the name of the folder (on the client that submits the job) where the
+         *                 python service code resides.  In this case, it is passed in to the createPipeline
+         *                 method as an argument.
+         *
+         *        handlerModule: the name of the python file (without .py) containing the transform_list function.
+         *                 This is also passed to the createPipeline method.
+         *
+         *        You can set the number of python instances to run on each node using the "setLocalParallelism"
+         *        method of the StreamStage.  Set local parallelism to 2.
+         *
+         *        After creating a PythonServiceConfig, invoke the python service with code similar to
+         *        the example below.
+         *
+         *        inputs.apply(PythonTransforms.mapUsingPython(myPythonServiceConfig).setLocalParallelism(2);
+         */
+        PythonServiceConfig pythonService = null;    // create the python service config
+        StreamStage<String> outputs = null;          // call map using python
 
-        Sink<Tuple2<String, float[]>> vectorCollection =
-                VectorSinks.vectorCollection(
-                        "images",    // collection name
-                        Tuple2::f0,               // key
-                        Tuple2::f0,               // val
-                        t -> VectorValues.of(t.f1()));  // vector
+        /*
+         * For debugging purposes, finish the pipeline with a logging sink and then test it by deploying
+         * it per the instructions in the README.  Remove this sink in the final pipeline.
+         */
+        outputs.writeTo(Sinks.logger());
 
-        vectors.writeTo(vectorCollection);
-        vectors.writeTo(Sinks.logger( t2 -> "Stored embedding for " + t2.f0()));
+        /*
+         * Use mapUsingService to decode the output.  The python stage emits json encoded strings.
+         * Use an instance of EmbeddingServiceCodec to translate the json into a (filename, float[]) 2-tuple.
+         *
+         * See: https://docs.hazelcast.com/hazelcast/5.4/pipelines/transforms#mapusingservice for
+         * an example
+         *
+         * First use ServiceFactories.sharedService to create an instance of EmbeddingServiceCodec.  One instance
+         * will be created on each node in the cluster.  Then use a mapUsingService stage to perform the decoding.
+         * Your map method will be passed the shared instance of EmbeddingServiceCodec and an event.  You should
+         * call embeddingCodec.decodeOutput(myEvent)
+         */
+        ServiceFactory<?, EmbeddingServiceCodec> postProcessor = null;
+        StreamStage<Tuple2<String, float[]>> vectors = null;
+
+        /*
+         * Finally, create a vector collection sink and write the pipeline events to it.
+         * See: https://docs.hazelcast.com/hazelcast/5.5-snapshot/integrate/vector-collection-connector#vector-collection-as-a-sink
+         *
+         * Call the VectorSinks.vectorCollection method with the following argument
+         *      name of the collection (see hazelcast.yaml)
+         *      function to extract the key - in this case, use tuple.f0() to return the URL of the image
+         *      function to extract the value - pass the URL of the image as the value as well
+         *      function to build an instance of VectorValue from the array of floats in tuple.f1()
+         *
+         *  You can construct a VectorValue instance with Vector.valuesOf(an-array-of-floats)
+         *
+         * When you have created a vector sink, finish the pipeline by writing it to the sink.
+         */
+        Sink<Tuple2<String, float[]>> vectorCollectionSink = null;
+
+        vectors.writeTo(vectorCollectionSink);
 
         return pipeline;
     }

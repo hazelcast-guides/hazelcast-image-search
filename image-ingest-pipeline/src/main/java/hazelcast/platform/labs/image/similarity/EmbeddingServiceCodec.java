@@ -9,24 +9,39 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /*
- * This class is responsible for unpacking a json document of the following format
- *
- * TODO
- *
- * into q float []
+ * The python service we use for calculating embeddings is limited to a single
+ * String for input and another for output.  This class is responsible for
+ * mapping the input events into String and turning the output from the
+ * python service into Java events that are consumable by the rest of the Pipeline
  */
 public class EmbeddingServiceCodec {
     private final Logger log = LogManager.getLogger();
 
     // safe for concurrent use
     private final ObjectMapper mapper;
-    private String wwwServer;
+    private final String wwwServer;
 
     public EmbeddingServiceCodec(String wwwServer){
         this.wwwServer = wwwServer;
         this.mapper = new ObjectMapper();
     }
 
+    /*
+     * The output from the python service is json encoded mapping with the following possible attributes:
+     *
+     * "exception"   The value is a message describing the error.
+     *
+     * "metadata"    The value is just the name of the file.  The python service just passes this
+     *               through from it's input.
+     *
+     * "vector"      The embedding, as a json list of numbers
+     *
+     * If "exception" is present it means the embedding failed.  In this case, an error message is logged and
+     * null is returned.
+     *
+     * If "exception" is not present then the contents of "vector" are translated into an array of floats
+     * and a (String filename, float []vector) 2-tuple is returned.
+     */
     public Tuple2<String, float[]> decodeOutput(String json) throws JsonProcessingException {
         JsonNode root = mapper.readTree(json);
         if (root.has("exception")){
@@ -44,6 +59,10 @@ public class EmbeddingServiceCodec {
         return Tuple2.tuple2(filename, vector);
     }
 
+    /*
+     * The input event is a string containing the name of the file that changed.  We use that
+     * file name to construct the URL from which the image can be retrieved.
+     */
     public String encodeInput(Tuple2<DirectoryWatcher.EventType, String> input){
         return wwwServer + "/" + input.f1();
     }
