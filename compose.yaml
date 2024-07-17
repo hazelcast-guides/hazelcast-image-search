@@ -64,6 +64,26 @@ services:
     profiles:
       - disabled
 
+  submit-image-loader-solution:
+    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    volumes:
+      - ".:/project"
+    command: >
+      hz-cli submit 
+          -v 
+          -c=hazelcast.platform.labs.image.similarity.solution.ImageIngestPipelineSolution 
+          -t=dev@hz  
+          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
+          /project/www
+          .jpg
+          http://www:8000 
+          /project/image-embedding-service 
+          clip_image_encoder
+    networks:
+      - hznet
+    profiles:
+      - disabled
+
   download-model:
     build:
       context: python-container
