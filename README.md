@@ -188,11 +188,12 @@ collection and perform similarity searches.
 
 # Known Issues
 
-1. The DirectoryWatcher provided in this project does not detect file deletes.  Currently it will only issue 
-   events when files are added or updated.
-2. Delete detection is not working.  If an image is removed from `www`, 
-   it will not be removed from the vector collection.
-3. If too many images are dumped into `www` at the same time, the pipeline will break with a 
-  'grpc max message size exceeded' message.
-4. Deploying the pipeline can take 2-10 minutes depending on your internet connection.  This is due to the need 
-   to download many python packages.  
+1. If an image is removed from _www_, it will not be removed from the 
+vector collection. This is because the underlying Java WatcherService is not 
+detecting the delete events.
+2. If too many images are dumped into _www_ at the same time, the pipeline will 
+break with a 'grpc max message size exceeded' message. The solution can safely handle
+200-250 images at the same time.  This is a known issue with the python integration 
+that will be addressed in a future release.
+3. Deploying the pipeline can take 2-10 minutes depending on your internet 
+connection.  This is due to the need to download many python packages.  
