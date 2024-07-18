@@ -4,7 +4,11 @@ services:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     environment:
       HZ_LICENSEKEY: ${HZ_LICENSEKEY}
-      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml -Dlog4j.configurationFile=/project/log4j2.properties  -Xmx5g  -XX:+UseZGC
+      JAVA_OPTS: >
+        -Dhazelcast.config=/project/hazelcast.yaml 
+        -Dlog4j.configurationFile=/project/log4j2.properties  
+        --add-modules jdk.incubator.vector
+        -Xmx5g  -XX:+UseZGC
     volumes:
       - ".:/project"
     networks:
