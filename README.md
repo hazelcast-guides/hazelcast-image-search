@@ -47,7 +47,7 @@ Hazelcast Pipeline API Documentation
 
 # 1x Setup
 
-These steps need to be done once berfore starting the lab.
+These steps need to be done once before starting the lab.
 
 ## 1. Download the CLIP model
 The model we will be using to perform embedding is almost 500M.  To speed 
