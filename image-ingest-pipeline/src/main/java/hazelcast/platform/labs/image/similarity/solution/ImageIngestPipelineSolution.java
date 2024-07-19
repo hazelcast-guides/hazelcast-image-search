@@ -62,19 +62,20 @@ public class ImageIngestPipelineSolution {
             String pythonServiceModule){
         Pipeline pipeline = Pipeline.create();
 
+        // 1. Read change events from file system
         StreamSource<Tuple2<DirectoryWatcher.EventType, String>> directoryWatcher =
                 DirectoryWatcherSourceBuilder.newDirectoryWatcher(dir, suffix);
         StreamStage<Tuple2<DirectoryWatcher.EventType, String>> changeEvents =
                 pipeline.readFrom(directoryWatcher).withoutTimestamps().setName("Watch for Changes");
 
-        // redistribute
+        // 2. Redistribute to all cluster nodes
         changeEvents = changeEvents.rebalance();
         
-        // prepare input 
+        // 3. Prepare input - emits URLS that can be used to retrieve changed images
         StreamStage<String> imageURLS =
                 changeEvents.map( t2 -> wwwServer + "/" + t2.f1()).setName("Prepare Input");
 
-        // compute embeddings in python
+        // 4. Compute embeddings in Python - emits String containing json encoded embedding vector
         PythonServiceConfig pythonService =
                 new PythonServiceConfig().setBaseDir(pythonServiceBaseDir).setHandlerModule(pythonServiceModule);
         StreamStage<String> outputs =
@@ -82,11 +83,13 @@ public class ImageIngestPipelineSolution {
                         .setLocalParallelism(2)  // reserve some cores for gc
                         .setName("Compute Embedding");
 
+        // 5. Parse output - emits a tuple of ( image url, image embedding )
         ServiceFactory<?, EmbeddingServiceCodec> postProcessor =
                 ServiceFactories.sharedService(ctx -> new EmbeddingServiceCodec());
         StreamStage<Tuple2<String, float[]>> vectors =
                 outputs.mapUsingService(postProcessor, EmbeddingServiceCodec::decodeOutput).setName("Parse Output");
 
+        // 6. Store embeddings in vector collection
         Sink<Tuple2<String, float[]>> vectorCollection =
                 VectorSinks.vectorCollection(
                         "images",    // collection name
