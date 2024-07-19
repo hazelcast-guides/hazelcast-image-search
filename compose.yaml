@@ -15,7 +15,7 @@ services:
       - hznet
 
   mc:
-    image: hazelcast/management-center:5.5-SNAPSHOT
+    image: hazelcast/management-center:latest-snapshot
     environment:
       MC_DEFAULT_CLUSTER: dev
       MC_DEFAULT_CLUSTER_MEMBERS: hz:5701
