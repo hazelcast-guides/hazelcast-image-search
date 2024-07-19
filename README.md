@@ -1,16 +1,8 @@
 # Overview 
 
-This tutorial demonstrates using  Hazelcast Enterprise 5.5 to build an image 
-search system.  The solution uses the CLIP sentence transformer 
-(https://huggingface.co/sentence-transformers/clip-ViT-B-32) to map images 
-and text onto a shared vector 512-dimensional vector space. This solution 
-demonstrates the following things.
-- a Hazelcast Pipeline that consumes unstructured data (images), computes 
-embeddings using Python, and stores them as vectors in a Hazelcast Enterprise 
-vector collection.
-- a Jupyter notebook that implements text based image searching using 
-the Hazelcast Python client
-
+This solution features a Hazelcast Pipeline that consumes unstructured data 
+(images), computes embeddings using Python, and stores them as vectors in a H
+azelcast Enterprise vector collection.
 
 The pipeline has the following high level components:
 1. Directory Watcher detects the arrival of new images and creates an event 
@@ -29,20 +21,6 @@ See the blueprint below.
 - Docker Desktop
 - A Java IDE
 - A Hazelcast Enterprise license key with "Advanced AI" enabled.
-
-> __NOTE:__
-> 
-> This lab needs to download quite a few python packages, docker 
-> images, etc..  You will need a good internet connection to run it.
-
-You will also need basic knowledge of both Java and Python to complete the 
-hands-on portions of this lab.
-
-# Useful Resources
-
-Hazelcast Pipeline API Documentation
-- https://docs.hazelcast.com/hazelcast/5.5-snapshot/pipelines/overview
-- https://docs.hazelcast.org/docs/5.4.0/javadoc/com/hazelcast/jet/pipeline/StreamStage.html
 
 
 # 1x Setup
@@ -67,133 +45,117 @@ directory.  Set the _HZ_LICENSEKEY_ variable to your license, as shown below.
 HZ_LICENSEKEY=Your-License-Here
 ```
 
+## 3. Build everything
+
+```
+mvn clean package
+```
+
+## 4. Make sure Docker Desktop has enough resources
+
+I used 24G and 8 CPU.  I'm sure 8G would be enough though. 
+
 # Walk Through
 
-## 1. Configure The Vector Collection
+The Hazelcast instance, including the vector collection and index are 
+configured in _hazelcast.yaml_
 
-```yaml
-hazelcast:
-  properties:
-    hazelcast.logging.type: log4j2
-    hazelcast.partition.count: 13
-
-  jet:
-    enabled: True
-    resource-upload-enabled: True
-
-  vector-collection:
-    images:
-      indexes:
-        - name: semantic-search
-          dimension: 512
-          metric: COSINE
+Start a Hazelcast instance, MC, the image web server and a Jupyter notebook
+```
+docker compose up -d
 ```
 
+You can access MC at http://localhost:8080
 
-This has already been done.  Please review _hazelcast.yaml_ (copied above) and 
-note the following points.
 
-- _hazelcast.partition.count_: Vector search performs better with fewer partitions. 
-On the other hand, fewer partitions means larger partitions, which can cause 
-problems during migration.  A discussion of the tradeoffs can be found here
-  (https://docs.hazelcast.com/hazelcast/5.5-snapshot/data-structures/vector-search-overview#partition-count-impact).
-- _jet_.  This is the Hazelcast stream processing engine.  Hazelcast pipelines 
-are a scalable way to rapidly ingest or process large amounts of data.  In 
-this example, we use a pipeline to compute embeddings and load them 
-into a vector collection so stream processing must be enabled.
-- _vector-collection_: Vector collections and their indices must be configured 
-before they are used.  In this case, the name of the collection is _images_ and 
-it has one index, which is called _semantic-search_.  The dimension and 
-distance metric are dependent on the embedding being used. The _dimension_ 
-must match the size of the vectors produced by the embedding.  The _metric_ defines 
-the algorithm used to compute the distance between 2 vectors and it must 
-match the one used to train the embedding.  In this case, the dimension of the 
-vectors is 512 and the distance metric is cosine distance (literally the cosine 
-of the angle between 2 vectors, adjusted to be non-negative). The options 
-supported are documented here (https://docs.hazelcast.com/hazelcast/5.5-snapshot/data-structures/vector-collections).
+Deploy the image loader job
+```
+docker compose run submit-image-loader-solution
+```
+This submits the pipeline defined in _image-ingest-pipeline/.../ImageIngestPipelineSolution.java_
 
-## 2. Start the environment.
+That pipeline will watch the _www_ directory and, when files are added,
+pass the filename to a _mapUsingPython_ stage that will pull the image 
+from the www sever and embed it.   The python portion is in the 
+_image-embedding-service_ folder.
 
-`docker compose up -d`
+Wait for the Pipeline to fully deploy, check the hazelcast logs with 
+`docker compose logs --follow hz` and verify that something like the following 
+is present.
 
-The Hazelcast Management Center is accessible at : http://localhost:8080
-
-## 3. Build and test the ingestion pipeline
-
-Follow the guidance and instructions in _ImageIngestPipeline.java_ 
-(in the _image-ingest-pipeline_ module).  
-
-When you are ready to test the pipeline...
-1. build the project: `mvn clean package`
-2. deploy the pipeline: `docker compose run deploy-image-loader`
-3. monitor the logs: `docker compose logs --follow hz`
-4. to generate events, copy some images from the _images_ folder 
-   into the _www_ folder.  A new pipeline event will be created 
-   for each image.
-5. To undeploy the job, use the Hazelcast Management Center. Navigate
-   to "Jobs"
-
-Iterate on the pipeline until you have finished the whole thing, and you are 
-sinking vectors into Hazelcast with no errors.
-
-Once you have the python service in your pipeline, it will take some time to 
-initialize (up to 5 minutes) because it has to download and install a lot of 
-python packages.  You will see something like the following in the hazelcast logs when 
-the python stream stage has initialized.
-
-```bash
-hazelcast-image-search-hz-1  | 2024-07-17 19:18:41,881 [ INFO] [hz.magical_joliot.cached.thread-7] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Started Python process: 246
-hazelcast-image-search-hz-1  | 2024-07-17 19:18:41,881 [ INFO] [hz.magical_joliot.cached.thread-3] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Started Python process: 245
-hazelcast-image-search-hz-1  | 2024-07-17 19:18:43,786 [ INFO] [hz.magical_joliot.cached.thread-7] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Python process 246 listening on port 39819
-hazelcast-image-search-hz-1  | 2024-07-17 19:18:43,819 [ INFO] [hz.magical_joliot.cached.thread-3] [c.h.j.python]: [172.25.0.3]:5701 [dev] [5.5.0-SNAPSHOT] Python process 245 listening on port 39459
+```
+hazelcast-image-search-hz-1  | 2024-07-19 15:09:01,342 [ INFO] [hz.sharp_meitner.cached.thread-5] [c.h.j.python]: [172.23.0.4]:5701 [dev] [5.5.0-SNAPSHOT] Started Python process: 203
+hazelcast-image-search-hz-1  | 2024-07-19 15:09:04,053 [ INFO] [hz.sharp_meitner.cached.thread-9] [c.h.j.python]: [172.23.0.4]:5701 [dev] [5.5.0-SNAPSHOT] Python process 204 listening on port 33087
 ```
 
-> __NOTE:__
-> 
-> A solution pipeline is available in the 
-> _hazelcast.platform.labs.image.similarity.solution_ package.  If you wish, you 
-> can bypass building the pipeline and directly deploy the solution by running 
-> `docker compose run submit-image-loader-solution`
+This shows that the Python service is fully initialized.  Continue to 
+watch the logs while you perform the next step.
 
-## 4. Perform a nearest neighbor search
+Copy ALL of the images in the _images_ folder into the _www_ folder.   After a 
+short while, the job undeploys with a message like the one below.
 
-You will do the rest of the lab in a Jupyter notebook.  To access Jupyter,
-run `docker compose logs jupyter`.  You will see something simular to 
-what is below.
+```
+Exception in ProcessorTasklet{0c07-23ae-f400-0001/Compute Embedding#0}: com.hazelcast.jet.JetException: Async operation completed exceptionally: java.util.concurrent.ExecutionException: com.hazelcast.jet.grpc.impl.StatusRuntimeExceptionJet: RESOURCE_EXHAUSTED: gRPC message exceeds maximum size 4194304: 4616029
+	at com.hazelcast.jet.impl.execution.TaskletExecutionService.handleTaskletExecutionError(TaskletExecutionService.java:289)
+	at com.hazelcast.jet.impl.execution.TaskletExecutionService$CooperativeWorker.runTasklet(TaskletExecutionService.java:413)
+	at java.base/java.util.concurrent.CopyOnWriteArrayList.forEach(CopyOnWriteArrayList.java:891)
+	at com.hazelcast.jet.impl.execution.TaskletExecutionService$CooperativeWorker.run(TaskletExecutionService.java:372)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: com.hazelcast.jet.impl.execution.TaskletExecutionException: Exception in ProcessorTasklet{0c07-23ae-f400-0001/Compute Embedding#0}: com.hazelcast.jet.JetException: Async operation completed exceptionally: java.util.concurrent.ExecutionException: com.hazelcast.jet.grpc.impl.StatusRuntimeExceptionJet: RESOURCE_EXHAUSTED: gRPC message exceeds maximum size 4194304: 4616029
+	at com.hazelcast.jet.impl.execution.TaskletExecutionService.handleTaskletExecutionError(TaskletExecutionService.java:288)
+	... 4 more
+Caused by: com.hazelcast.jet.JetException: Async operation completed exceptionally: java.util.concurrent.ExecutionException: com.hazelcast.jet.grpc.impl.StatusRuntimeExceptionJet: RESOURCE_EXHAUSTED: gRPC message exceeds maximum size 4194304: 4616029
+	at com.hazelcast.jet.impl.processor.AsyncTransformUsingServiceOrderedP.tryFlushQueue(AsyncTransformUsingServiceOrderedP.java:205)
+	at com.hazelcast.jet.impl.processor.AsyncTransformUsingServiceOrderedP.makeRoomInQueue(AsyncTransformUsingServiceOrderedP.java:118)
+	at com.hazelcast.jet.impl.processor.AsyncTransformUsingServiceBatchedP.process(AsyncTransformUsingServiceBatchedP.java:67)
+	at com.hazelcast.jet.impl.execution.ProcessorTasklet.lambda$processInbox$2f647568$2(ProcessorTasklet.java:490)
+	at com.hazelcast.jet.function.RunnableEx.run(RunnableEx.java:31)
+	at com.hazelcast.jet.impl.util.Util.doWithClassLoader(Util.java:586)
+	at com.hazelcast.jet.impl.execution.ProcessorTasklet.processInbox(ProcessorTasklet.java:490)
+	at com.hazelcast.jet.impl.execution.ProcessorTasklet.stateMachineStep(ProcessorTasklet.java:341)
+	at com.hazelcast.jet.impl.execution.ProcessorTasklet.call(ProcessorTasklet.java:291)
+	at com.hazelcast.jet.impl.execution.TaskletExecutionService$CooperativeWorker.runTasklet(TaskletExecutionService.java:407)
+	... 3 more
+Caused by: java.util.concurrent.ExecutionException: com.hazelcast.jet.grpc.impl.StatusRuntimeExceptionJet: RESOURCE_EXHAUSTED: gRPC message exceeds maximum size 4194304: 4616029
+	at java.base/java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:396)
+	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2073)
+	at com.hazelcast.jet.impl.processor.AsyncTransformUsingServiceOrderedP.tryFlushQueue(AsyncTransformUsingServiceOrderedP.java:200)
+	... 12 more
+Caused by: com.hazelcast.jet.grpc.impl.StatusRuntimeExceptionJet: RESOURCE_EXHAUSTED: gRPC message exceeds maximum size 4194304: 4616029
+	at io.grpc.Status.asRuntimeException(Status.java:537)
+	at io.grpc.stub.ClientCalls$StreamObserverToCallListenerAdapter.onClose(ClientCalls.java:481)
+	at io.grpc.PartialForwardingClientCallListener.onClose(PartialForwardingClientCallListener.java:39)
+	at io.grpc.ForwardingClientCallListener.onClose(ForwardingClientCallListener.java:23)
+	at io.grpc.ForwardingClientCallListener$SimpleForwardingClientCallListener.onClose(ForwardingClientCallListener.java:40)
+	at io.grpc.census.CensusStatsModule$StatsClientInterceptor$1$1.onClose(CensusStatsModule.java:814)
+	at io.grpc.PartialForwardingClientCallListener.onClose(PartialForwardingClientCallListener.java:39)
+	at io.grpc.ForwardingClientCallListener.onClose(ForwardingClientCallListener.java:23)
+	at io.grpc.ForwardingClientCallListener$SimpleForwardingClientCallListener.onClose(ForwardingClientCallListener.java:40)
+	at io.grpc.census.CensusTracingModule$TracingClientInterceptor$1$1.onClose(CensusTracingModule.java:494)
+	at io.grpc.internal.DelayedClientCall$DelayedListener$3.run(DelayedClientCall.java:489)
+	at io.grpc.internal.DelayedClientCall$DelayedListener.delayOrExecute(DelayedClientCall.java:453)
+	at io.grpc.internal.DelayedClientCall$DelayedListener.onClose(DelayedClientCall.java:486)
+	at io.grpc.internal.ClientCallImpl.closeObserver(ClientCallImpl.java:574)
+	at io.grpc.internal.ClientCallImpl.access$300(ClientCallImpl.java:72)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInternal(ClientCallImpl.java:742)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInContext(ClientCallImpl.java:723)
+	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	... 1 more
 
-```bash
-hazelcast-image-search-jupyter-1  | [C 2024-07-17 19:57:47.478 ServerApp]
-hazelcast-image-search-jupyter-1  |
-hazelcast-image-search-jupyter-1  |     To access the server, open this file in a browser:
-hazelcast-image-search-jupyter-1  |         file:///root/.local/share/jupyter/runtime/jpserver-1-open.html
-hazelcast-image-search-jupyter-1  |     Or copy and paste one of these URLs:
-hazelcast-image-search-jupyter-1  |         http://localhost:8888/tree?token=7a4d2794d4135eaa88ee9e9642e80e7044cb5c213717e2be
-hazelcast-image-search-jupyter-1  |         http://127.0.0.1:8888/tree?token=7a4d2794d4135eaa88ee9e9642e80e7044cb5c213717e2be
-haz
 ```
 
-> __NOTE:__ 
-> Some errors in the log are expected and can be safely ignored.  The lines you are 
-> looking for should be near the top of the output.
+Even though the message says something about resource exhaustion, I'm fairly 
+sure this was not caused by CPU, memory of GC problems.  Check out this 
+[video](watchme.mp4) of the MC dashboard while reproducing the problem.
 
+I think this is just caused by trying to batch too many events together in 
+one invocation of the grpc service, causing the message to exceed the 
+maximum message size.  We probably need some strategy to 
+limit the maximum size of a batch, based on the message size.
 
-Copy the URL from the output and paste it into a browser window.  This should 
-bring up a Jupyter notebook.  Double-click on the "Hazelcast Image Similarity" 
-notebook to open it and follow the directions there.
+BTW, in this case the events just contain the names of the modified files, 
+not the file contents.
 
-# The End
-
-You should now be able to load unstructured data into a Hazelcast vector 
-collection and perform similarity searches.
-
-# Known Issues
-
-1. If an image is removed from _www_, it will not be removed from the 
-vector collection. This is because the underlying Java WatcherService is not 
-detecting the delete events.
-2. If too many images are dumped into _www_ at the same time, the pipeline will 
-break with a 'grpc max message size exceeded' message. The solution can safely handle
-200-250 images at the same time.  This is a known issue with the python integration 
-that will be addressed in a future release.
-3. Deploying the pipeline can take 2-10 minutes depending on your internet 
-connection.  This is due to the need to download many python packages.  

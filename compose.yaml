@@ -4,11 +4,14 @@ services:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     environment:
       HZ_LICENSEKEY: ${HZ_LICENSEKEY}
+      # We wouldn't normally use -Xms with ZGC but this has been done on purpose to
+      # rule out that the problem is  caused by a lack of memory or a failure to
+      # expand memory quickly enough
       JAVA_OPTS: >
         -Dhazelcast.config=/project/hazelcast.yaml 
         -Dlog4j.configurationFile=/project/log4j2.properties  
         --add-modules jdk.incubator.vector
-        -Xmx5g  -XX:+UseZGC
+        -Xmx5g  -Xms5g -XX:+UseZGC
     volumes:
       - ".:/project"
     networks:
@@ -33,40 +36,6 @@ services:
     command: python -m http.server 8000 -d /project/www
     networks:
       - hznet
-
-  jupyter:
-    build:
-      context: python-container
-    ports:
-      - "8888:8888"
-    volumes:
-      - ".:/project"
-    working_dir: /project/ui
-    environment:
-      PYTHONPATH: /root/hazelcast-python-client
-    command: jupyter notebook --allow-root --port=8888 --ip=* --no-browser
-    networks:
-      - hznet
-
-  submit-image-loader:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
-    volumes:
-      - ".:/project"
-    command: >
-      hz-cli submit 
-          -v 
-          -c=hazelcast.platform.labs.image.similarity.ImageIngestPipeline 
-          -t=dev@hz  
-          /project/image-ingest-pipeline/target/image-ingest-pipeline-1.0-SNAPSHOT.jar 
-          /project/www
-          .jpg
-          http://www:8000 
-          /project/image-embedding-service 
-          clip_image_encoder
-    networks:
-      - hznet
-    profiles:
-      - disabled
 
   submit-image-loader-solution:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT

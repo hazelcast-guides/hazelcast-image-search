@@ -80,7 +80,7 @@ public class ImageIngestPipelineSolution {
                 new PythonServiceConfig().setBaseDir(pythonServiceBaseDir).setHandlerModule(pythonServiceModule);
         StreamStage<String> outputs =
                 imageURLS.apply(PythonTransforms.mapUsingPython(pythonService))
-                        .setLocalParallelism(2)  // reserve some cores for gc
+                        .setLocalParallelism(1)  // reserve some cores for gc
                         .setName("Compute Embedding");
 
         // 5. Parse output - emits a tuple of ( image url, image embedding )
