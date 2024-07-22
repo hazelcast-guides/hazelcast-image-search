@@ -10,7 +10,7 @@ services:
     networks:
       - hznet
   mc:
-    image: hazelcast/management-center:5.5-SNAPSHOT
+    image: hazelcast/management-center:latest-snapshot
     environment:
       MC_DEFAULT_CLUSTER: dev
       MC_DEFAULT_CLUSTER_MEMBERS: hz:5701
@@ -20,7 +20,7 @@ services:
       - hznet
 
 
-  submit-image-loader-airplanes:
+  submit-image-loader00:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     volumes:
       - ".:/project"
@@ -30,13 +30,13 @@ services:
           -c=hazelcast.platform.labs.image.similarity.ImageEncodePipeline 
           -t=dev@hz   
           /project/image-encode-pipeline/target/image-encode-pipeline-1.0-SNAPSHOT.jar 
-          /project/images/caltech-101/101_ObjectCategories/airplanes
+          /project/images/00
     networks:
       - hznet
     profiles:
       - disabled
 
-  submit-image-loader-butterfly:
+  submit-image-loader01:
     image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
     volumes:
       - ".:/project"
@@ -46,7 +46,7 @@ services:
           -c=hazelcast.platform.labs.image.similarity.ImageEncodePipeline 
           -t=dev@hz   
           /project/image-encode-pipeline/target/image-encode-pipeline-1.0-SNAPSHOT.jar 
-          /project/images/caltech-101/101_ObjectCategories/butterfly
+          /project/images/01
     networks:
       - hznet
     profiles:
