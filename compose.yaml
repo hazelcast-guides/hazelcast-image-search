@@ -1,7 +1,7 @@
 services:
 
   hz:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    image: hazelcast/hazelcast-enterprise:5.5
     environment:
       HZ_LICENSEKEY: ${HZ_LICENSEKEY}
       JAVA_OPTS: >
@@ -49,7 +49,7 @@ services:
       - hznet
 
   submit-image-loader:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    image: hazelcast/hazelcast-enterprise:5.5
     volumes:
       - ".:/project"
     command: >
@@ -69,7 +69,7 @@ services:
       - disabled
 
   submit-image-loader-solution:
-    image: hazelcast/hazelcast-enterprise:5.5.0-SNAPSHOT
+    image: hazelcast/hazelcast-enterprise:5.5
     volumes:
       - ".:/project"
     command: >
