@@ -30,7 +30,7 @@
             <name>Hazelcast Private Snapshot Repository</name>
             <url>https://repository.hazelcast.com/release/</url>
             <releases>
-                <enabled>true/enabled>
+                <enabled>true</enabled>
             </releases>
             <snapshots>
                 <enabled>false</enabled>
